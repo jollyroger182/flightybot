@@ -1,4 +1,4 @@
-import type { ContextBlockElement, KnownBlock } from '@slack/web-api'
+import type { ContextBlockElement, KnownBlock, RichTextBlock, TableBlock } from '@slack/web-api'
 import type { Subscription } from './database'
 import { getFlightDetails, type FlightDetails } from './flighty'
 import { app } from './client'
@@ -70,40 +70,6 @@ export async function generateSlackMessage(flight: FlightDetails) {
       },
     })
   }
-  // if (flight.flight.status === 'SCHEDULED') {
-  //   contextElements.push(
-  //     {
-  //       type: 'mrkdwn',
-  //       text: `Departs ${formatTimeInTimeZone(flight.flight.departure.schedule.initialGateTime, flight.flight.departure.airport.timezone)}`,
-  //     },
-  //     {
-  //       type: 'mrkdwn',
-  //       text: `Arrives ${formatTimeInTimeZone(flight.flight.arrival.schedule.initialGateTime, flight.flight.arrival.scheduled_airport.timezone)}`,
-  //     },
-  //   )
-  // } else if (flight.flight.status === 'EN_ROUTE') {
-  //   contextElements.push(
-  //     {
-  //       type: 'mrkdwn',
-  //       text: `Departed ${formatTimeInTimeZone(flight.flight.departure.schedule.initialGateTime, flight.flight.departure.airport.timezone)}`,
-  //     },
-  //     {
-  //       type: 'mrkdwn',
-  //       text: `Arrives ${formatTimeInTimeZone(flight.flight.arrival.schedule.initialGateTime, flight.flight.arrival.scheduled_airport.timezone)}`,
-  //     },
-  //   )
-  // } else if (flight.flight.status === 'LANDED') {
-  //   contextElements.push(
-  //     {
-  //       type: 'mrkdwn',
-  //       text: `Departed ${formatTimeInTimeZone(flight.flight.departure.schedule.initialGateTime, flight.flight.departure.airport.timezone)}`,
-  //     },
-  //     {
-  //       type: 'mrkdwn',
-  //       text: `Arrived ${formatTimeInTimeZone(flight.flight.arrival.schedule.initialGateTime, flight.flight.arrival.scheduled_airport.timezone)}`,
-  //     },
-  //   )
-  // }
 
   const blocks: KnownBlock[] = [
     {
@@ -142,10 +108,152 @@ export async function generateSlackMessage(flight: FlightDetails) {
       ],
     },
     ...statusBlocks,
+    { type: 'divider' },
+    {
+      type: 'table',
+      rows: [
+        [
+          generatePlainRichText('Schedule'),
+          generateBoldRichText('Scheduled'),
+          generateBoldRichText('Estimated'),
+          generateBoldRichText('Actual'),
+        ],
+        [
+          generatePlainRichText('-'),
+          generatePlainRichText('-'),
+          generatePlainRichText('-'),
+          generatePlainRichText('-'),
+        ],
+        [
+          generateBoldRichText('Departure'),
+          formatScheduleValue(
+            flight.flight.departure.schedule.initialGateTime,
+            flight.flight.departure.airport.timezone,
+          ),
+          generatePlainRichText('-'),
+          generatePlainRichText('-'),
+        ],
+        [
+          generateBoldRichText('Gate departure'),
+          formatScheduleValue(
+            flight.flight.departure.schedule.gate.original,
+            flight.flight.departure.airport.timezone,
+          ),
+          formatScheduleValue(
+            flight.flight.departure.schedule.gate.estimated,
+            flight.flight.departure.airport.timezone,
+          ),
+          formatScheduleValue(
+            flight.flight.departure.schedule.gate.actual,
+            flight.flight.departure.airport.timezone,
+          ),
+        ],
+        [
+          generateBoldRichText('Take off'),
+          formatScheduleValue(
+            flight.flight.departure.schedule.runway.original,
+            flight.flight.departure.airport.timezone,
+          ),
+          formatScheduleValue(
+            flight.flight.departure.schedule.runway.estimated,
+            flight.flight.departure.airport.timezone,
+          ),
+          formatScheduleValue(
+            flight.flight.departure.schedule.runway.actual,
+            flight.flight.departure.airport.timezone,
+          ),
+        ],
+        [
+          generatePlainRichText('-'),
+          generatePlainRichText('-'),
+          generatePlainRichText('-'),
+          generatePlainRichText('-'),
+        ],
+        [
+          generateBoldRichText('Land'),
+          formatScheduleValue(
+            flight.flight.arrival.schedule.runway.original,
+            flight.flight.arrival.actual_airport.timezone,
+          ),
+          formatScheduleValue(
+            flight.flight.arrival.schedule.runway.estimated,
+            flight.flight.arrival.actual_airport.timezone,
+          ),
+          formatScheduleValue(
+            flight.flight.arrival.schedule.runway.actual,
+            flight.flight.arrival.actual_airport.timezone,
+          ),
+        ],
+        [
+          generateBoldRichText('Gate arrival'),
+          formatScheduleValue(
+            flight.flight.arrival.schedule.gate.original,
+            flight.flight.arrival.actual_airport.timezone,
+          ),
+          formatScheduleValue(
+            flight.flight.arrival.schedule.gate.estimated,
+            flight.flight.arrival.actual_airport.timezone,
+          ),
+          formatScheduleValue(
+            flight.flight.arrival.schedule.gate.actual,
+            flight.flight.arrival.actual_airport.timezone,
+          ),
+        ],
+        [
+          generateBoldRichText('Arrival'),
+          formatScheduleValue(
+            flight.flight.arrival.schedule.initialGateTime,
+            flight.flight.arrival.actual_airport.timezone,
+          ),
+          generatePlainRichText('-'),
+          generatePlainRichText('-'),
+        ],
+      ],
+    },
   ]
 
   return {
     text: `Flight ${flight.flight.airline.iata} ${flight.flight.flight_number} (${flight.flight.status})`,
     blocks,
+  }
+}
+
+function generatePlainRichText(text: string): RichTextBlock {
+  return {
+    type: 'rich_text',
+    elements: [{ type: 'rich_text_section', elements: [{ type: 'text', text }] }],
+  }
+}
+
+function generateBoldRichText(text: string): RichTextBlock {
+  return {
+    type: 'rich_text',
+    elements: [
+      { type: 'rich_text_section', elements: [{ type: 'text', text, style: { bold: true } }] },
+    ],
+  }
+}
+
+function formatScheduleValue(
+  timestamp: number | undefined,
+  tz: string,
+): TableBlock['rows'][number][number] {
+  if (!timestamp) return { type: 'raw_text', text: '-' }
+  return {
+    type: 'rich_text',
+    elements: [
+      {
+        type: 'rich_text_section',
+        elements: [
+          { type: 'text', text: `${formatTimeInTimeZone(timestamp, tz)} ` },
+          {
+            type: 'date',
+            timestamp,
+            format: '({ago})',
+            fallback: `(${formatDateTimeInTimeZone(timestamp, tz)} in ${tz})`,
+          },
+        ],
+      },
+    ],
   }
 }
