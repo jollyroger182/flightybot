@@ -1,7 +1,7 @@
-import type { ContextBlockElement, KnownBlock, RichTextBlock, TableBlock } from '@slack/web-api'
+import type { KnownBlock, RichTextBlock, TableBlock } from '@slack/web-api'
+import { app } from './client'
 import type { Subscription } from './database'
 import { getFlightDetails, type FlightDetails } from './flighty'
-import { app } from './client'
 import {
   formatDateDiffSuffix,
   formatDateInTimeZone,

@@ -1,6 +1,9 @@
 import { app } from './client'
+import { registerCommands } from './commands'
 import { getActiveSubscriptions, updateSubscription } from './database'
 import { updateSlackMessage } from './slack'
+
+registerCommands()
 
 await app.start()
 console.log('flightybot started')

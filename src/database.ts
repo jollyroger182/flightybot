@@ -14,6 +14,13 @@ export async function getActiveSubscriptions() {
   return await sql<Subscription[]>`SELECT * FROM subscriptions WHERE active`
 }
 
+export async function createSubscription(
+  subscription: Omit<Subscription, 'id' | 'created_at' | 'slack_updated_at'>,
+) {
+  const payload = { ...subscription, created_at: new Date(), slack_updated_at: new Date() }
+  return (await sql<[Subscription]>`INSERT INTO subscriptions ${sql(payload)} RETURNING *`)[0]
+}
+
 export async function updateSubscription(subscription: Subscription) {
   const payload = { ...subscription, id: undefined }
   await sql`UPDATE subscriptions SET ${sql(payload)} WHERE id = ${subscription.id}`
