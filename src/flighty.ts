@@ -1,11 +1,18 @@
 export async function getFlightDetails(id: string): Promise<FlightDetails> {
-  const resp = await fetch(`https://live.flighty.app/${id}`, {
-    headers: {
-      'User-Agent':
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:147.0) Gecko/20100101 Firefox/147.0',
-    },
-    redirect: 'manual',
-  })
+  let resp: Response
+  try {
+    resp = await fetch(`https://live.flighty.app/${id}`, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:147.0) Gecko/20100101 Firefox/147.0',
+      },
+      redirect: 'manual',
+    })
+  } catch (e) {
+    console.error('failed fetching flighty url', e)
+    throw new Error('Failed to get flight details: Failed to fetch')
+  }
+
   if (resp.status !== 200) {
     console.error(`status code ${resp.status} getting flight`, await resp.text())
     throw new Error(
@@ -34,7 +41,7 @@ export interface FlightDetails {
     departure: {
       airport: Airport
       terminal: string
-      gate: string
+      gate?: string
       schedule: Schedule
       airportDelays: AirportDelays
       checkInSchedule: { open: number; close: number }
@@ -45,7 +52,7 @@ export interface FlightDetails {
       scheduled_airport: Airport
       actual_airport: Airport
       terminal: string
-      baggage_belt: string
+      baggage_belt?: string
       schedule: Schedule
       weather: Weather
       airportDelays: AirportDelays
@@ -53,7 +60,13 @@ export interface FlightDetails {
     }
     airline: Airline
     flight_number: string
-    status: string
+    status:
+      | 'SCHEDULED'
+      | 'DEPARTURE_TAXIING'
+      | 'EN_ROUTE'
+      | 'ARRIVAL_TAXIING'
+      | 'LANDED'
+      | 'CANCELLED'
     equipment: Equipment
     distance: number
   }
@@ -101,6 +114,7 @@ interface AirportDelays {
   averageDelayMinutes: number
   lastUpdated: number
   expirationTime: number
+  trend?: 'INCREASING' | 'DECREASING'
 }
 
 interface Schedule {
@@ -122,7 +136,7 @@ interface Weather {
 
 interface ScheduleItem {
   original: number
-  actual: number
+  actual?: number
   estimated: number
 }
 
@@ -139,8 +153,8 @@ interface Airport {
   countryCode: string
   region: string
   relevance: number
-  website: string
-  cityCode: string
+  website?: string
+  cityCode?: string
   created: number
   last_updated: number
   content_type: 'AIRPORT'

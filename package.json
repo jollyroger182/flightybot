@@ -3,14 +3,19 @@
   "module": "src/index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "dev": "bun --watch --no-clear-screen src/index.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/luxon": "^3.7.1",
     "prettier": "^3.8.1"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
-    "@slack/bolt": "^4.6.0"
+    "@slack/bolt": "^4.6.0",
+    "luxon": "^3.7.2"
   }
 }

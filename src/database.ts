@@ -1,6 +1,6 @@
 import { sql } from 'bun'
 
-interface Subscription {
+export interface Subscription {
   id: string
   active: boolean
   flighty_id: string
@@ -12,4 +12,9 @@ interface Subscription {
 
 export async function getActiveSubscriptions() {
   return await sql<Subscription[]>`SELECT * FROM subscriptions WHERE active`
+}
+
+export async function updateSubscription(subscription: Subscription) {
+  const payload = { ...subscription, id: undefined }
+  await sql`UPDATE subscriptions SET ${sql(payload)} WHERE id = ${subscription.id}`
 }
