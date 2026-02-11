@@ -1,0 +1,39 @@
+{
+  "display_information": {
+    "name": "flightybot"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "flightybot",
+      "always_online": true
+    },
+    "slash_commands": [
+      {
+        "command": "/flighty-track",
+        "description": "Track your flight in this channel",
+        "usage_hint": "<Flighty URL>",
+        "should_escape": false
+      }
+    ]
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "chat:write",
+        "chat:write.customize",
+        "chat:write.public",
+        "commands",
+        "channels:read",
+        "groups:read"
+      ]
+    }
+  },
+  "settings": {
+    "interactivity": {
+      "is_enabled": true
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": true,
+    "token_rotation_enabled": false
+  }
+}
