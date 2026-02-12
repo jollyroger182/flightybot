@@ -5,6 +5,7 @@ CREATE TABLE subscriptions (
     flighty_id TEXT NOT NULL,
     slack_channel TEXT NOT NULL,
     slack_ts TEXT NOT NULL,
+    creator_slack_id TEXT NOT NULL,
     slack_updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
