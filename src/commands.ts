@@ -5,7 +5,7 @@ import { createSubscription } from './database'
 import { generateSlackMessage } from './slack'
 
 export function registerCommands() {
-  app.command(/.*-track$/, async ({ payload, ack, say, respond }) => {
+  app.command(/.*-track$/, async ({ payload, ack, respond }) => {
     const text = payload.text
     const match = text.match(/^https?:\/\/live\.flighty\.app\/([a-zA-Z0-9-]+)$/)
     if (!match) {

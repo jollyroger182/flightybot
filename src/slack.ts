@@ -24,7 +24,14 @@ export async function updateSlackMessage(subscription: Subscription) {
     await deactivateSubscription(subscription)
     return
   }
+
+  if (data.flight.status === 'LANDED') {
+    console.debug('deactivating because flight landed for subscription', subscription.id)
+    await deactivateSubscription(subscription)
+  }
+
   const message = await generateSlackMessage(data, subscription)
+
   try {
     await app.client.chat.update({
       channel: subscription.slack_channel,
@@ -87,7 +94,7 @@ export async function generateSlackMessage(
     : [
         {
           type: 'plain_text',
-          text: 'Not updating',
+          text: 'Creator stopped updating',
         },
       ]
 
@@ -124,6 +131,10 @@ export async function generateSlackMessage(
             flight.flight.arrival.schedule.initialGateTime,
             flight.flight.arrival.scheduled_airport.timezone,
           )}`,
+        },
+        {
+          type: 'plain_text',
+          text: `${flight.flight.departure.airport.iata} - ${flight.flight.arrival.scheduled_airport.iata}${flight.flight.arrival.scheduled_airport.iata !== flight.flight.arrival.actual_airport.iata ? ` (actual ${flight.flight.arrival.actual_airport.iata})` : ''}`,
         },
         {
           type: 'mrkdwn',
@@ -311,13 +322,14 @@ function formatScheduleValue(
       {
         type: 'rich_text_section',
         elements: [
-          { type: 'text', text: `${formatTimeInTimeZone(timestamp, tz)} ` },
+          { type: 'text', text: `${formatTimeInTimeZone(timestamp, tz)} (` },
           {
             type: 'date',
             timestamp,
-            format: '({ago})',
-            fallback: `(${formatDateTimeInTimeZone(timestamp, tz)} in ${tz})`,
+            format: '{ago}',
+            fallback: `${formatDateTimeInTimeZone(timestamp, tz)} in ${tz}`,
           },
+          { type: 'text', text: ')' },
         ],
       },
     ],
