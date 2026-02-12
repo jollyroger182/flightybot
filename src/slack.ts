@@ -1,6 +1,6 @@
 import type { KnownBlock, RichTextBlock, TableBlock } from '@slack/web-api'
 import { app } from './client'
-import type { Subscription } from './database'
+import { deactivateSubscription, type Subscription } from './database'
 import { getFlightDetails, type FlightDetails } from './flighty'
 import {
   formatDateDiffSuffix,
@@ -14,61 +14,50 @@ export async function updateSlackMessage(subscription: Subscription) {
   try {
     data = await getFlightDetails(subscription.flighty_id)
   } catch {
+    console.warn('deactivating because flighty invalid for subscription', subscription.id)
+    await deactivateSubscription(subscription)
     return
   }
-  const message = await generateSlackMessage(data)
-  await app.client.chat.update({
-    channel: subscription.slack_channel,
-    ts: subscription.slack_ts,
-    ...message,
-  })
+  const message = await generateSlackMessage(data, subscription)
+  try {
+    await app.client.chat.update({
+      channel: subscription.slack_channel,
+      ts: subscription.slack_ts,
+      ...message,
+    })
+  } catch (e) {
+    if (
+      e instanceof Error &&
+      ((e as any)?.data?.error === 'message_not_found' ||
+        (e as any)?.data?.error === 'channel_not_found')
+    ) {
+      console.warn('deactivating because message not found for subscription', subscription.id)
+      await deactivateSubscription(subscription)
+      return
+    }
+    throw e
+  }
 }
 
-export async function generateSlackMessage(flight: FlightDetails) {
+export async function generateSlackMessage(
+  flight: FlightDetails,
+  subscription: Pick<Subscription, 'creator_slack_id' | 'created_at'>,
+) {
   const statusBlocks: KnownBlock[] = []
+  let statusText: string = `Unknown status (${flight.flight.status})`
   if (flight.flight.status === 'SCHEDULED') {
     const isOverdue = Date.now() / 1000 > flight.flight.departure.schedule.initialGateTime
-    statusBlocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `Scheduled | Departure${isOverdue ? ' due' : ''} *<!date^${flight.flight.departure.schedule.initialGateTime}^ {ago}|${formatDateTimeInTimeZone(flight.flight.departure.schedule.initialGateTime, flight.flight.departure.airport.timezone)} in ${flight.flight.departure.airport.timezone}}>*`,
-      },
-    })
+    statusText = `Scheduled | Departure${isOverdue ? ' due' : ''} *<!date^${flight.flight.departure.schedule.initialGateTime}^ {ago}|${formatDateTimeInTimeZone(flight.flight.departure.schedule.initialGateTime, flight.flight.departure.airport.timezone)} in ${flight.flight.departure.airport.timezone}}>*`
   } else if (flight.flight.status === 'DEPARTURE_TAXIING') {
     const isOverdue = Date.now() / 1000 > flight.flight.departure.schedule.runway.original
-    statusBlocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `Taxiing | Take off${isOverdue ? ' due' : ''} *<!date^${flight.flight.departure.schedule.runway.original}^ {ago}|${formatDateTimeInTimeZone(flight.flight.departure.schedule.runway.original, flight.flight.departure.airport.timezone)} in ${flight.flight.departure.airport.timezone}}>*`,
-      },
-    })
+    statusText = `Taxiing | Take off${isOverdue ? ' due' : ''} *<!date^${flight.flight.departure.schedule.runway.original}^ {ago}|${formatDateTimeInTimeZone(flight.flight.departure.schedule.runway.original, flight.flight.departure.airport.timezone)} in ${flight.flight.departure.airport.timezone}}>*`
   } else if (flight.flight.status === 'EN_ROUTE') {
-    statusBlocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `En route | Lands *<!date^${flight.flight.arrival.schedule.initialGateTime}^ {ago}|${formatDateTimeInTimeZone(flight.flight.arrival.schedule.initialGateTime, flight.flight.arrival.scheduled_airport.timezone)} in ${flight.flight.arrival.scheduled_airport.timezone}}>*`,
-      },
-    })
+    statusText = `En route | Lands *<!date^${flight.flight.arrival.schedule.initialGateTime}^ {ago}|${formatDateTimeInTimeZone(flight.flight.arrival.schedule.initialGateTime, flight.flight.arrival.scheduled_airport.timezone)} in ${flight.flight.arrival.scheduled_airport.timezone}}>*`
   } else if (flight.flight.status === 'ARRIVAL_TAXIING') {
     const isOverdue = Date.now() / 1000 > flight.flight.arrival.schedule.gate.original
-    statusBlocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `Taxiing | Gate arrival${isOverdue ? ' due' : ''} *<!date^${flight.flight.arrival.schedule.gate.original}^ {ago}|${formatDateTimeInTimeZone(flight.flight.arrival.schedule.gate.original, flight.flight.arrival.actual_airport.timezone)} in ${flight.flight.arrival.actual_airport.timezone}}>*`,
-      },
-    })
+    statusText = `Taxiing | Gate arrival${isOverdue ? ' due' : ''} *<!date^${flight.flight.arrival.schedule.gate.original}^ {ago}|${formatDateTimeInTimeZone(flight.flight.arrival.schedule.gate.original, flight.flight.arrival.actual_airport.timezone)} in ${flight.flight.arrival.actual_airport.timezone}}>*`
   } else if (flight.flight.status === 'LANDED') {
-    statusBlocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `Landed *<!date^${flight.flight.arrival.schedule.initialGateTime}^ {ago}|${formatDateTimeInTimeZone(flight.flight.departure.schedule.initialGateTime, flight.flight.departure.airport.timezone)} in ${flight.flight.departure.airport.timezone}}>*`,
-      },
-    })
+    statusText = `Landed *<!date^${flight.flight.arrival.schedule.initialGateTime}^ {ago}|${formatDateTimeInTimeZone(flight.flight.departure.schedule.initialGateTime, flight.flight.departure.airport.timezone)} in ${flight.flight.departure.airport.timezone}}>*`
   }
 
   const blocks: KnownBlock[] = [
@@ -105,9 +94,29 @@ export async function generateSlackMessage(flight: FlightDetails) {
             flight.flight.arrival.scheduled_airport.timezone,
           )}`,
         },
+        {
+          type: 'mrkdwn',
+          text: `<!date^${Math.round(Date.now() / 1000)}^Last updated {ago}|Last updated at ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC>`,
+        },
       ],
     },
-    ...statusBlocks,
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: statusText },
+      accessory: {
+        type: 'overflow',
+        options: [
+          {
+            text: {
+              type: 'plain_text',
+              text: ':flighty: Open in Flighty',
+              emoji: true,
+            },
+            url: `https://live.flighty.app/${flight.flight.id}`,
+          },
+        ],
+      },
+    },
     { type: 'divider' },
     {
       type: 'table',
@@ -208,6 +217,16 @@ export async function generateSlackMessage(flight: FlightDetails) {
           generatePlainRichText('-'),
           generatePlainRichText('-'),
         ],
+      ],
+    },
+    {
+      type: 'context',
+      elements: [
+        { type: 'mrkdwn', text: `Tracked by <@${subscription.creator_slack_id}>` },
+        {
+          type: 'mrkdwn',
+          text: `<!date^${Math.round(subscription.created_at.getTime() / 1000)}^{date_short_pretty} at {time}|${subscription.created_at.toLocaleString('en-US')}>`,
+        },
       ],
     },
   ]

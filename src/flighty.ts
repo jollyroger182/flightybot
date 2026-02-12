@@ -71,7 +71,7 @@ export interface FlightDetails {
     distance: number
   }
   flightPosition: { latitude: number; longitude: number; heading: number }[]
-  route: unknown[]
+  route: { latitude: number; longitude: number }[]
   update: string
   deeplink: string
 }

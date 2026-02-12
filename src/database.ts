@@ -6,6 +6,7 @@ export interface Subscription {
   flighty_id: string
   slack_channel: string
   slack_ts: string
+  creator_slack_id: string
   slack_updated_at: Date
   created_at: Date
 }
@@ -24,4 +25,10 @@ export async function createSubscription(
 export async function updateSubscription(subscription: Subscription) {
   const payload = { ...subscription, id: undefined }
   await sql`UPDATE subscriptions SET ${sql(payload)} WHERE id = ${subscription.id}`
+}
+
+export async function deactivateSubscription(subscription: Subscription) {
+  // im lazy
+  subscription.active = false
+  await updateSubscription(subscription)
 }

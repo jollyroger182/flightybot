@@ -40,7 +40,10 @@ export function registerCommands() {
 
     const message = await app.client.chat.postMessage({
       channel: payload.channel_id,
-      ...(await generateSlackMessage(data)),
+      ...(await generateSlackMessage(data, {
+        creator_slack_id: payload.user_id,
+        created_at: new Date(),
+      })),
     })
 
     await createSubscription({
@@ -48,6 +51,7 @@ export function registerCommands() {
       flighty_id: id,
       slack_channel: message.channel!,
       slack_ts: message.ts!,
+      creator_slack_id: payload.user_id,
     })
   })
 }
