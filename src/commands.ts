@@ -41,6 +41,7 @@ export function registerCommands() {
     const message = await app.client.chat.postMessage({
       channel: payload.channel_id,
       ...(await generateSlackMessage(data, {
+        active: true,
         creator_slack_id: payload.user_id,
         created_at: new Date(),
       })),

@@ -15,6 +15,14 @@ export async function getActiveSubscriptions() {
   return await sql<Subscription[]>`SELECT * FROM subscriptions WHERE active`
 }
 
+export async function getSubscriptionByMessage(channel: string, ts: string) {
+  return (
+    await sql<
+      Subscription[]
+    >`SELECT * FROM subscriptions WHERE slack_channel = ${channel} AND slack_ts = ${ts}`
+  )[0]
+}
+
 export async function createSubscription(
   subscription: Omit<Subscription, 'id' | 'created_at' | 'slack_updated_at'>,
 ) {

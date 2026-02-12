@@ -1,4 +1,10 @@
-import type { KnownBlock, RichTextBlock, TableBlock } from '@slack/web-api'
+import type {
+  KnownBlock,
+  PlainTextElement,
+  PlainTextOption,
+  RichTextBlock,
+  TableBlock,
+} from '@slack/web-api'
 import { app } from './client'
 import { deactivateSubscription, type Subscription } from './database'
 import { getFlightDetails, type FlightDetails } from './flighty'
@@ -41,9 +47,8 @@ export async function updateSlackMessage(subscription: Subscription) {
 
 export async function generateSlackMessage(
   flight: FlightDetails,
-  subscription: Pick<Subscription, 'creator_slack_id' | 'created_at'>,
+  subscription: Pick<Subscription, 'active' | 'creator_slack_id' | 'created_at'>,
 ) {
-  const statusBlocks: KnownBlock[] = []
   let statusText: string = `Unknown status (${flight.flight.status})`
   if (flight.flight.status === 'SCHEDULED') {
     const isOverdue = Date.now() / 1000 > flight.flight.departure.schedule.initialGateTime
@@ -59,6 +64,32 @@ export async function generateSlackMessage(
   } else if (flight.flight.status === 'LANDED') {
     statusText = `Landed *<!date^${flight.flight.arrival.schedule.initialGateTime}^ {ago}|${formatDateTimeInTimeZone(flight.flight.departure.schedule.initialGateTime, flight.flight.departure.airport.timezone)} in ${flight.flight.departure.airport.timezone}}>*`
   }
+
+  const deactivateOptions: PlainTextOption[] = subscription.active
+    ? [
+        {
+          text: {
+            type: 'plain_text',
+            text: ':x: Stop updating',
+            emoji: true,
+          },
+          description: {
+            type: 'plain_text',
+            text: 'Creator only',
+          },
+          value: 'deactivate',
+        },
+      ]
+    : []
+
+  const deactivatedElements: PlainTextElement[] = subscription.active
+    ? []
+    : [
+        {
+          type: 'plain_text',
+          text: 'Not updating',
+        },
+      ]
 
   const blocks: KnownBlock[] = [
     {
@@ -105,6 +136,7 @@ export async function generateSlackMessage(
       text: { type: 'mrkdwn', text: statusText },
       accessory: {
         type: 'overflow',
+        action_id: 'track_overflow',
         options: [
           {
             text: {
@@ -113,7 +145,21 @@ export async function generateSlackMessage(
               emoji: true,
             },
             url: `https://live.flighty.app/${flight.flight.id}`,
+            value: 'flighty',
           },
+          {
+            text: {
+              type: 'plain_text',
+              text: ':wastebasket: Delete message',
+              emoji: true,
+            },
+            description: {
+              type: 'plain_text',
+              text: 'Creator only',
+            },
+            value: 'delete',
+          },
+          ...deactivateOptions,
         ],
       },
     },
@@ -227,6 +273,7 @@ export async function generateSlackMessage(
           type: 'mrkdwn',
           text: `<!date^${Math.round(subscription.created_at.getTime() / 1000)}^{date_short_pretty} at {time}|${subscription.created_at.toLocaleString('en-US')}>`,
         },
+        ...deactivatedElements,
       ],
     },
   ]
