@@ -4,6 +4,7 @@ export interface Subscription {
   id: string
   active: boolean
   flighty_id: string
+  flight_number: string
   slack_channel: string
   slack_ts: string
   creator_slack_id: string
@@ -13,6 +14,12 @@ export interface Subscription {
 
 export async function getActiveSubscriptions() {
   return await sql<Subscription[]>`SELECT * FROM subscriptions WHERE active`
+}
+
+export async function getActiveSubscriptionsByUser(user: string) {
+  return await sql<
+    Subscription[]
+  >`SELECT * FROM subscriptions WHERE active AND creator_slack_id = ${user} ORDER BY created_at DESC`
 }
 
 export async function getSubscriptionByMessage(channel: string, ts: string) {

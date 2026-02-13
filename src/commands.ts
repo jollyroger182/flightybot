@@ -1,7 +1,7 @@
 import { app } from './client'
 import type { ConversationsInfoResponse } from '@slack/web-api'
 import { getFlightDetails, type FlightDetails } from './flighty'
-import { createSubscription } from './database'
+import { createSubscription, getActiveSubscriptionsByUser } from './database'
 import { generateSlackMessage } from './slack'
 
 export function registerCommands() {
@@ -50,6 +50,7 @@ export function registerCommands() {
     await createSubscription({
       active: true,
       flighty_id: id,
+      flight_number: `${data.flight.airline.iata} ${data.flight.flight_number}`,
       slack_channel: message.channel!,
       slack_ts: message.ts!,
       creator_slack_id: payload.user_id,

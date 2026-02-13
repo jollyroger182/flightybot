@@ -3,6 +3,7 @@ CREATE TABLE subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     active BOOLEAN NOT NULL DEFAULT TRUE,
     flighty_id TEXT NOT NULL,
+    flight_number TEXT NOT NULL,
     slack_channel TEXT NOT NULL,
     slack_ts TEXT NOT NULL,
     creator_slack_id TEXT NOT NULL,
