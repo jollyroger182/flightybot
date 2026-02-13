@@ -13,6 +13,11 @@
         "description": "Track your flight in this channel",
         "usage_hint": "<Flighty URL>",
         "should_escape": false
+      },
+      {
+        "command": "/flighty-list",
+        "description": "List your tracked flights",
+        "should_escape": false
       }
     ]
   },

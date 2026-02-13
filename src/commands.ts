@@ -56,4 +56,34 @@ export function registerCommands() {
       creator_slack_id: payload.user_id,
     })
   })
+
+  app.command(/.*-list/, async ({ payload, ack, respond }) => {
+    await ack()
+
+    const allSubscriptions = await getActiveSubscriptionsByUser(payload.user_id)
+    const subscriptions = allSubscriptions.slice(0, 10)
+
+    if (!subscriptions.length) {
+      const name = payload.command.replace('-list', '-track')
+      return respond(
+        `:airplane: No active flights tracked. Get started with \`${name} <flighty-url>\`!`,
+      )
+    }
+
+    const subscriptionsText = (
+      await Promise.all(
+        subscriptions.map(
+          async (s) =>
+            `- <${(await app.client.chat.getPermalink({ channel: s.slack_channel, message_ts: s.slack_ts })).permalink}|${s.flight_number}> (in <#${s.slack_channel}>, tracked <!date^${Math.round(s.created_at.getTime() / 1000)}^{date_short_pretty} at {time}|${s.created_at.toLocaleString('en-US', { timeZone: 'UTC' })} UTC>)`,
+        ),
+      )
+    ).join('\n')
+    const overflowText =
+      allSubscriptions.length > subscriptions.length
+        ? ` (only the latest ${subscriptions.length} of ${allSubscriptions.length} shown)`
+        : ''
+    const text = `:airplane: Here are your active tracked flights${overflowText}:\n${subscriptionsText}`
+
+    await respond(text)
+  })
 }
