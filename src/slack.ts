@@ -7,19 +7,13 @@ import type {
 } from '@slack/web-api'
 import { app } from './client'
 import { deactivateSubscription, type Subscription } from './database'
-import {
-  getFlightDetails,
-  type FlightDetails,
-  type TimeComponents,
-  type TimeComponentsSecond,
-} from './flighty'
+import { getFlightDetails, type FlightDetails } from './flighty'
 import {
   formatDateDiffSuffix,
   formatDateInTimeZone,
   formatDateTimeInTimeZone,
   formatTimeInTimeZone,
 } from './utils/formatting'
-import { convertComponentsToTimestamp } from './utils/convert'
 
 export async function updateSlackMessage(subscription: Subscription) {
   let data: FlightDetails
@@ -64,20 +58,15 @@ export async function generateSlackMessage(
 ) {
   let statusText: string = `Unknown status (${flight.flight.status})`
   if (flight.flight.status === 'SCHEDULED') {
-    const isOverdue =
-      Date.now() / 1000 >
-      convertComponentsToTimestamp(flight.flight.departure.schedule.initialGateTime)
+    const isOverdue = Date.now() / 1000 > flight.flight.departure.schedule.initialGateTime
     statusText = `Scheduled | Departure${isOverdue ? ' due' : ''} *<!date^${flight.flight.departure.schedule.initialGateTime}^ {ago}|${formatDateTimeInTimeZone(flight.flight.departure.schedule.initialGateTime, flight.flight.departure.airport.timezone)} in ${flight.flight.departure.airport.timezone}}>*`
   } else if (flight.flight.status === 'DEPARTURE_TAXIING') {
-    const isOverdue =
-      Date.now() / 1000 >
-      convertComponentsToTimestamp(flight.flight.departure.schedule.runway.original)
+    const isOverdue = Date.now() / 1000 > flight.flight.departure.schedule.runway.original
     statusText = `Taxiing | Take off${isOverdue ? ' due' : ''} *<!date^${flight.flight.departure.schedule.runway.original}^ {ago}|${formatDateTimeInTimeZone(flight.flight.departure.schedule.runway.original, flight.flight.departure.airport.timezone)} in ${flight.flight.departure.airport.timezone}}>*`
   } else if (flight.flight.status === 'EN_ROUTE') {
     statusText = `En route | Lands *<!date^${flight.flight.arrival.schedule.initialGateTime}^ {ago}|${formatDateTimeInTimeZone(flight.flight.arrival.schedule.initialGateTime, flight.flight.arrival.scheduled_airport.timezone)} in ${flight.flight.arrival.scheduled_airport.timezone}}>*`
   } else if (flight.flight.status === 'ARRIVAL_TAXIING') {
-    const isOverdue =
-      Date.now() / 1000 > convertComponentsToTimestamp(flight.flight.arrival.schedule.gate.original)
+    const isOverdue = Date.now() / 1000 > flight.flight.arrival.schedule.gate.original
     statusText = `Taxiing | Gate arrival${isOverdue ? ' due' : ''} *<!date^${flight.flight.arrival.schedule.gate.original}^ {ago}|${formatDateTimeInTimeZone(flight.flight.arrival.schedule.gate.original, flight.flight.arrival.actual_airport.timezone)} in ${flight.flight.arrival.actual_airport.timezone}}>*`
   } else if (flight.flight.status === 'LANDED') {
     statusText = `Landed *<!date^${flight.flight.arrival.schedule.initialGateTime}^ {ago}|${formatDateTimeInTimeZone(flight.flight.departure.schedule.initialGateTime, flight.flight.departure.airport.timezone)} in ${flight.flight.departure.airport.timezone}}>*`
@@ -323,11 +312,10 @@ function generateBoldRichText(text: string): RichTextBlock {
 }
 
 function formatScheduleValue(
-  timestamp: number | TimeComponents | TimeComponentsSecond | undefined | null,
+  timestamp: number | undefined,
   tz: string,
 ): TableBlock['rows'][number][number] {
   if (!timestamp) return { type: 'raw_text', text: '-' }
-  timestamp = convertComponentsToTimestamp(timestamp)
   return {
     type: 'rich_text',
     elements: [
