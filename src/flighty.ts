@@ -1,6 +1,35 @@
 export async function getFlightDetails(id: string): Promise<FlightDetails> {
   let resp: Response
   try {
+    resp = await fetch(`https://live.flighty.app/${id}/data`)
+  } catch (e) {
+    console.error('failed fetching flighty url', e)
+    throw new Error('Failed to get flight details: Failed to fetch')
+  }
+
+  if (resp.status === 404) {
+    // sometimes /data is just 404 idk why
+    return getFlightDetailsFromPage(id)
+  }
+
+  if (resp.status !== 200) {
+    console.error(`status code ${resp.status} getting flight`, await resp.text())
+    throw new Error(
+      `Failed to get flight details: Received status code ${resp.status} ${resp.statusText}`,
+    )
+  }
+
+  try {
+    return (await resp.json()) as FlightDetails
+  } catch (e) {
+    console.error('cannot json parse response')
+    throw new Error(`Failed to get flight details: Failed to parse flight data`)
+  }
+}
+
+async function getFlightDetailsFromPage(id: string): Promise<FlightDetails> {
+  let resp: Response
+  try {
     resp = await fetch(`https://live.flighty.app/${id}`, {
       headers: {
         'User-Agent':
@@ -35,6 +64,9 @@ export async function getFlightDetails(id: string): Promise<FlightDetails> {
   }
 }
 
+export type TimeComponents = [number, number, number, number, number]
+export type TimeComponentsSecond = [number, number, number, number, number, number]
+
 export interface FlightDetails {
   flight: {
     id: string
@@ -44,7 +76,7 @@ export interface FlightDetails {
       gate?: string
       schedule: Schedule
       airportDelays: AirportDelays
-      checkInSchedule: { open: number; close: number }
+      checkInSchedule: { open: TimeComponents; close: TimeComponents }
       weather: Weather
       notams: unknown[] // TODO
     }
@@ -105,22 +137,22 @@ interface Airline {
   alliance: string
   active: boolean
   relevance: number
-  created: number
-  last_updated: number
+  created: TimeComponentsSecond
+  last_updated: TimeComponentsSecond
   content_type: 'AIRLINE'
 }
 
 interface AirportDelays {
   averageDelayMinutes: number
-  lastUpdated: number
-  expirationTime: number
+  lastUpdated: TimeComponentsSecond
+  expirationTime: TimeComponentsSecond
   trend?: 'INCREASING' | 'DECREASING'
 }
 
 interface Schedule {
   gate: ScheduleItem
   runway: ScheduleItem
-  initialGateTime: number
+  initialGateTime: TimeComponents
 }
 
 interface Weather {
@@ -131,13 +163,14 @@ interface Weather {
   conditionIcon: string
   warnings: unknown[] // TODO
   source: string
-  lastUpdated: number
+  lastUpdated: TimeComponents
 }
 
 interface ScheduleItem {
-  original: number
-  actual?: number
-  estimated: number
+  original: TimeComponents
+  actual: TimeComponents | null
+  estimated: TimeComponents
+  predicted: TimeComponents | null
 }
 
 interface Airport {
@@ -155,8 +188,8 @@ interface Airport {
   relevance: number
   website?: string
   cityCode?: string
-  created: number
-  last_updated: number
+  created: TimeComponentsSecond
+  last_updated: TimeComponentsSecond
   content_type: 'AIRPORT'
 }
 
